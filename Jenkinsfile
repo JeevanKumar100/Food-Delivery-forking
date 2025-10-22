@@ -7,7 +7,7 @@ pipeline {
         BACKEND_DIR = 'backend'
         FRONTEND_IMAGE = 'jeevankumar01/food-delivery-frontend'
         BACKEND_IMAGE = 'jeevankumar01/food-delivery-backend'
-       //  DOCKER_CREDS = 'kubeconfig-aws'       // DockerHub credentials ID
+        DOCKER_CREDS = '4141de9a-d3bb-4a93-a2bd-101bef59c800'       // DockerHub credentials ID
         KUBECONFIG_CRED = 'kubeconfig-aws'
     }
 
