@@ -16,10 +16,12 @@ spec:
     spec:
       containers:
         - name: food-delivery-backend
-          image: your-dockerhub-username/food-delivery-backend:latest
+          image: jeevankumar01/food-delivery-backend:latest   # Correct DockerHub image
           ports:
             - containerPort: 5000
           env:
             - name: NODE_ENV
               value: production
           imagePullPolicy: Always
+      imagePullSecrets:
+        - name: dockerhub-secret   # Reference to DockerHub secret
