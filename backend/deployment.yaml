@@ -23,7 +23,7 @@ spec:
             - name: NODE_ENV
               value: production
             - name: MONGO_URI
-              value: "mongodb://mongo-service:27017/fooddb"
+              value: "mongodb://mongo-service:27017/fooddb"  # <-- Point to MongoDB service
           imagePullPolicy: Always
       imagePullSecrets:
         - name: dockerhub-secret
