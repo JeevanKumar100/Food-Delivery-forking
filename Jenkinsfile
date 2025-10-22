@@ -7,7 +7,7 @@ pipeline {
         BACKEND_DIR = 'backend'
         FRONTEND_IMAGE = 'jeevankumar01/food-delivery-frontend'
         BACKEND_IMAGE = 'jeevankumar01/food-delivery-backend'
-        DOCKER_CREDS = 'jeevankumar01'
+        DOCKER_CREDS = '0ce9ce48-f95e-4b32-abcc-bd50695d96a1'
     }
 
     stages {
