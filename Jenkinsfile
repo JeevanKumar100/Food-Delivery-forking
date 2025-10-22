@@ -82,7 +82,7 @@ pipeline {
             steps {
                 script {
                     echo "🚀 Deploying application to Kubernetes..."
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CRED}", variable: 'KUBECONFIG')]) {
+                    withCredentials([file(credentialsId: "AWS-Credentials", variable: 'KUBECONFIG')]) {
                         sh 'kubectl apply -f frontend/deployment.yaml'
                         sh 'kubectl apply -f frontend/service.yaml'
                         sh 'kubectl apply -f backend/deployment.yaml'
