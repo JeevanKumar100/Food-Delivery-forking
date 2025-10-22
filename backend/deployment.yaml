@@ -16,12 +16,14 @@ spec:
     spec:
       containers:
         - name: food-delivery-backend
-          image: jeevankumar01/food-delivery-backend:latest   # Correct DockerHub image
+          image: jeevankumar01/food-delivery-backend:latest
           ports:
-            - containerPort: 5000
+            - containerPort: 4000
           env:
             - name: NODE_ENV
               value: production
+            - name: MONGO_URI
+              value: "mongodb://localhost:27017/fooddb"  # Default local MongoDB URI
           imagePullPolicy: Always
       imagePullSecrets:
-        - name: dockerhub-secret   # Reference to DockerHub secret
+        - name: dockerhub-secret
