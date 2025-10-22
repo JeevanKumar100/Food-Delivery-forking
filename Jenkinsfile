@@ -7,8 +7,8 @@ pipeline {
         BACKEND_DIR = 'backend'
         FRONTEND_IMAGE = 'jeevankumar01/food-delivery-frontend'
         BACKEND_IMAGE = 'jeevankumar01/food-delivery-backend'
-        DOCKER_CREDS = 'kubeconfig-aws1'       // DockerHub credentials ID
-        KUBECONFIG_CRED = 'k8s-aws-v1.aHR0cHM6Ly9zdHMuYXAtc291dGgtMS5hbWF6b25hd3MuY29tLz9BY3Rpb249R2V0Q2FsbGVySWRlbnRpdHkmVmVyc2lvbj0yMDExLTA2LTE1JlgtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQTNWN1VEN0xHUFdUWkFVV1IlMkYyMDI1MTAyMiUyRmFwLXNvdXRoLTElMkZzdHMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MTAyMlQxMDQ2MTFaJlgtQW16LUV4cGlyZXM9NjAmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JTNCeC1rOHMtYXdzLWlkJlgtQW16LVNpZ25hdHVyZT1mYzgwNjNmYmYzYzcxZjM2ODIyNGMwZDFjZjBmN2NjNDBkNjk0MzUyODA0YjMzZjdhMTdjMzBiYjI2NzUzOTI5' // Jenkins kubeconfig credentials ID
+       //  DOCKER_CREDS = 'kubeconfig-aws'       // DockerHub credentials ID
+        KUBECONFIG_CRED = 'kubeconfig-aws'
     }
 
     stages {
