@@ -7,21 +7,34 @@ pipeline {
         BACKEND_DIR = 'backend'
         FRONTEND_IMAGE = 'jeevankumar01/food-delivery-frontend'
         BACKEND_IMAGE = 'jeevankumar01/food-delivery-backend'
-        DOCKER_CREDS = '0ce9ce48-f95e-4b32-abcc-bd50695d96a1'
+        DOCKER_CREDS = '0ce9ce48-f95e-4b32-abcc-bd50695d96a1'  // Jenkins DockerHub credentials ID
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: "https://github.com/JeevanKumar100/Food-Delivery-forking.git"
+                echo "📥 Checking out repository..."
+                git branch: 'main', url: "${GIT_REPO}"
             }
         }
 
         stage('Build Frontend Image') {
             steps {
                 script {
-                    echo "🔧 Building Frontend Docker Image..."
-                    dockerImageFrontend = docker.build("${FRONTEND_IMAGE}:${BUILD_NUMBER}", "./${FRONTEND_DIR}")
+                    echo "🔧 Checking if Frontend image exists..."
+                    def frontendExists = sh(
+                        script: "docker pull ${FRONTEND_IMAGE}:latest || echo 'not found'",
+                        returnStatus: true
+                    )
+
+                    if (frontendExists != 0) {
+                        echo "🛠️ Building new Frontend Docker image..."
+                        dockerImageFrontend = docker.build("${FRONTEND_IMAGE}:${BUILD_NUMBER}", "./${FRONTEND_DIR}")
+                    } else {
+                        echo "✅ Frontend image already exists. Skipping build."
+                        dockerImageFrontend = docker.image("${FRONTEND_IMAGE}:latest")
+                    }
                 }
             }
         }
@@ -29,8 +42,19 @@ pipeline {
         stage('Build Backend Image') {
             steps {
                 script {
-                    echo "🔧 Building Backend Docker Image..."
-                    dockerImageBackend = docker.build("${BACKEND_IMAGE}:${BUILD_NUMBER}", "./${BACKEND_DIR}")
+                    echo "🔧 Checking if Backend image exists..."
+                    def backendExists = sh(
+                        script: "docker pull ${BACKEND_IMAGE}:latest || echo 'not found'",
+                        returnStatus: true
+                    )
+
+                    if (backendExists != 0) {
+                        echo "🛠️ Building new Backend Docker image..."
+                        dockerImageBackend = docker.build("${BACKEND_IMAGE}:${BUILD_NUMBER}", "./${BACKEND_DIR}")
+                    } else {
+                        echo "✅ Backend image already exists. Skipping build."
+                        dockerImageBackend = docker.image("${BACKEND_IMAGE}:latest")
+                    }
                 }
             }
         }
@@ -38,12 +62,16 @@ pipeline {
         stage('Push Images to DockerHub') {
             steps {
                 script {
-                    echo "📦 Pushing Images to DockerHub..."
+                    echo "📦 Pushing images to DockerHub..."
                     docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDS}") {
-                        dockerImageFrontend.push()
-                        dockerImageFrontend.push('latest')
-                        dockerImageBackend.push()
-                        dockerImageBackend.push('latest')
+                        if (dockerImageFrontend) {
+                            dockerImageFrontend.push()
+                            dockerImageFrontend.push('latest')
+                        }
+                        if (dockerImageBackend) {
+                            dockerImageBackend.push()
+                            dockerImageBackend.push('latest')
+                        }
                     }
                 }
             }
@@ -52,11 +80,11 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    echo "🚀 Deploying to Kubernetes..."
-                    sh 'kubectl apply -f k8s/frontend-deployment.yaml'
-                    sh 'kubectl apply -f k8s/frontend-service.yaml'
-                    sh 'kubectl apply -f k8s/backend-deployment.yaml'
-                    sh 'kubectl apply -f k8s/backend-service.yaml'
+                    echo "🚀 Deploying application to Kubernetes..."
+                    sh 'kubectl apply -f frontend/deployment.yaml'
+                    sh 'kubectl apply -f frontend/service.yaml'
+                    sh 'kubectl apply -f backend/deployment.yaml'
+                    sh 'kubectl apply -f backend/service.yaml'
                 }
             }
         }
