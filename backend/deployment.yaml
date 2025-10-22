@@ -23,7 +23,7 @@ spec:
             - name: NODE_ENV
               value: production
             - name: MONGO_URI
-              value: "mongodb://localhost:27017/fooddb"  # Default local MongoDB URI
+              value: "mongodb://mongo-service:27017/fooddb"
           imagePullPolicy: Always
       imagePullSecrets:
         - name: dockerhub-secret
