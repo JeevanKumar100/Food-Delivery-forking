@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: food-delivery-frontend
-          image: your-dockerhub-username/food-delivery-frontend:latest
+          image: jeevankumar01/food-delivery-frontend:latest
           ports:
             - containerPort: 80
           imagePullPolicy: Always
