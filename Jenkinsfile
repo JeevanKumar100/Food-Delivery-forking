@@ -7,8 +7,10 @@ pipeline {
         BACKEND_DIR = 'backend'
         FRONTEND_IMAGE = 'jeevankumar01/food-delivery-frontend'
         BACKEND_IMAGE = 'jeevankumar01/food-delivery-backend'
-        DOCKER_CREDS = '4141de9a-d3bb-4a93-a2bd-101bef59c800'       // DockerHub credentials ID
-        KUBECONFIG_CRED = 'kubeconfig-aws'
+        DOCKER_CREDS = '4141de9a-d3bb-4a93-a2bd-101bef59c800'  // DockerHub credentials ID
+        KUBECONFIG_CRED = 'kubeconfig-aws'                     // Secret file ID for kubeconfig
+        AWS_CREDS = 'AWS-Credentials'                                  // AWS IAM credentials ID
+        AWS_REGION = 'ap-south-1'
     }
 
     stages {
@@ -82,12 +84,18 @@ pipeline {
             steps {
                 script {
                     echo "🚀 Deploying application to Kubernetes..."
-                    withCredentials([file(credentialsId: "AWS-Credentials", variable: 'KUBECONFIG')]) {
-                        sh 'kubectl apply -f frontend/deployment.yaml'
-                        sh 'kubectl apply -f frontend/service.yaml'
-                        sh 'kubectl apply -f backend/deployment.yaml'
-                        sh 'kubectl apply -f backend/service.yaml'
-                        sh 'kubectl get pods -o wide'
+                    withCredentials([
+                        file(credentialsId: "kubeconfig-aws", variable: 'KUBECONFIG'),
+                        [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "AWS-Credentials"]
+                    ]) {
+                        sh """
+                            export AWS_REGION=${AWS_REGION}
+                            kubectl apply -f frontend/deployment.yaml
+                            kubectl apply -f frontend/service.yaml
+                            kubectl apply -f backend/deployment.yaml
+                            kubectl apply -f backend/service.yaml
+                            kubectl get pods -o wide
+                        """
                     }
                 }
             }
