@@ -7,14 +7,14 @@ pipeline {
         FRONTEND_DIR = 'frontend'
         BACKEND_DIR = 'backend'
 
-        AWS_ACCOUNT_ID = '803133979340'     // <<< REPLACE WITH YOUR ACCOUNT
+        AWS_ACCOUNT_ID = '803133979340'
         AWS_REGION = 'ap-south-1'
 
         FRONTEND_REPO = 'food-delivery-frontend'
         BACKEND_REPO = 'food-delivery-backend'
 
-        AWS_CREDS = 'AWS-Credentials'         // Jenkins AWS Credentials ID
-        KUBECONFIG_CRED = 'kubeconfig-aws'    // Jenkins kubeconfig secret file
+        AWS_CREDS = 'AWS-Credentials'
+        KUBECONFIG_CRED = 'kubeconfig-aws'
     }
 
     stages {
@@ -28,9 +28,7 @@ pipeline {
 
         stage('Create ECR Repositories If Not Exists') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDS}"]
-                ]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDS}"]]) {
                     sh """
                         aws ecr describe-repositories --repository-names ${FRONTEND_REPO} --region ${AWS_REGION} || \
                         aws ecr create-repository --repository-name ${FRONTEND_REPO} --region ${AWS_REGION}
@@ -47,7 +45,6 @@ pipeline {
                 script {
                     echo "🛠️ Building Frontend Image..."
                     FRONTEND_ECR="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:${BUILD_NUMBER}"
-
                     sh "docker build -t ${FRONTEND_ECR} ${FRONTEND_DIR}"
                     dockerImageFrontend = FRONTEND_ECR
                 }
@@ -59,7 +56,6 @@ pipeline {
                 script {
                     echo "🛠️ Building Backend Image..."
                     BACKEND_ECR="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:${BUILD_NUMBER}"
-
                     sh "docker build -t ${BACKEND_ECR} ${BACKEND_DIR}"
                     dockerImageBackend = BACKEND_ECR
                 }
@@ -71,17 +67,17 @@ pipeline {
                 script {
                     echo "📦 Pushing images to AWS ECR..."
 
-                    withCredentials([
-                        [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDS}"]
-                    ]) {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDS}"]]) {
                         sh """
                             aws ecr get-login-password --region ${AWS_REGION} | \
                             docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
+                            # Frontend
                             docker push ${dockerImageFrontend}
                             docker tag ${dockerImageFrontend} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:latest
                             docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:latest
 
+                            # Backend
                             docker push ${dockerImageBackend}
                             docker tag ${dockerImageBackend} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:latest
                             docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:latest
@@ -101,21 +97,21 @@ pipeline {
                         export KUBECONFIG=${KUBECONFIG}
                         export AWS_REGION=${AWS_REGION}
 
-                        # Update Frontend deployment
-                        kubectl set image deployment/frontend-deployment \
-                           frontend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:${BUILD_NUMBER} --record
+                        echo "🚀 Updating Frontend Deployment..."
+                        kubectl set image deployment/frontend \
+                          frontend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:${BUILD_NUMBER}
 
-                        # Update Backend deployment
-                        kubectl set image deployment/backend-deployment \
-                           backend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:${BUILD_NUMBER} --record
+                        echo "🚀 Updating Backend Deployment..."
+                        kubectl set image deployment/backend \
+                          backend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:${BUILD_NUMBER}
 
-                        # Apply services (LoadBalancer)
+                        echo "📡 Applying Services (LoadBalancer)..."
                         kubectl apply -f frontend/service.yaml
                         kubectl apply -f backend/service.yaml
 
                         echo "⏳ Waiting for rollout..."
-                        kubectl rollout status deployment/frontend-deployment
-                        kubectl rollout status deployment/backend-deployment
+                        kubectl rollout status deployment/frontend
+                        kubectl rollout status deployment/backend
 
                         kubectl get svc -o wide
                     """
