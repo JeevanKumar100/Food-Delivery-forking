@@ -22,7 +22,7 @@ spec:
           env:
             - name: NODE_ENV
               value: production
-            - name: MONGO_URI
+            - name: MONGO_URL
               value: "mongodb://mongo-service:27017/fooddb"  # <-- Point to MongoDB service
           imagePullPolicy: Always
       imagePullSecrets:
