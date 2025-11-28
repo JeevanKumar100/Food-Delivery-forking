@@ -5,6 +5,7 @@ metadata:
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: TCP
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "4000"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
 spec:
   type: LoadBalancer
   selector:
