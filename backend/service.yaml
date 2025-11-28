@@ -3,10 +3,9 @@ kind: Service
 metadata:
   name: food-delivery-backend-service
 spec:
+  type: LoadBalancer
   selector:
     app: food-delivery-backend
-  type: LoadBalancer
   ports:
-    - protocol: TCP
-      port: 5000
-      targetPort: 5000
+    - port: 4000          # external port
+      targetPort: 4000     # container port
