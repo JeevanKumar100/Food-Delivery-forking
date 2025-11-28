@@ -16,14 +16,12 @@ spec:
     spec:
       containers:
         - name: food-delivery-backend
-          image: jeevankumar01/food-delivery-backend:latest
+          image: 803133979340.dkr.ecr.ap-south-1.amazonaws.com/food-delivery-backend:latest
           ports:
             - containerPort: 4000
           env:
             - name: NODE_ENV
               value: production
-            - name: MONGO_URL
-              value: "mongodb://mongo-service:27017/fooddb"  # <-- Point to MongoDB service
+            - name: MONGO_URI          # <--- FIXED!!
+              value: "mongodb://mongo-service:27017/fooddb"
           imagePullPolicy: Always
-      imagePullSecrets:
-        - name: dockerhub-secret
