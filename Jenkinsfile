@@ -3,14 +3,18 @@ pipeline {
 
     environment {
         GIT_REPO = 'https://github.com/JeevanKumar100/Food-Delivery-forking.git'
+
         FRONTEND_DIR = 'frontend'
         BACKEND_DIR = 'backend'
-        FRONTEND_IMAGE = 'jeevankumar01/food-delivery-frontend'
-        BACKEND_IMAGE = 'jeevankumar01/food-delivery-backend'
-        DOCKER_CREDS = '4141de9a-d3bb-4a93-a2bd-101bef59c800'  // DockerHub credentials ID
-        KUBECONFIG_CRED = 'kubeconfig-aws'                     // Secret file ID for kubeconfig
-        AWS_CREDS = 'AWS-Credentials'                                  // AWS IAM credentials ID
+
+        AWS_ACCOUNT_ID = '803133979340'     // <<< REPLACE WITH YOUR ACCOUNT
         AWS_REGION = 'ap-south-1'
+
+        FRONTEND_REPO = 'food-delivery-frontend'
+        BACKEND_REPO = 'food-delivery-backend'
+
+        AWS_CREDS = 'AWS-Credentials'         // Jenkins AWS Credentials ID
+        KUBECONFIG_CRED = 'kubeconfig-aws'    // Jenkins kubeconfig secret file
     }
 
     stages {
@@ -22,22 +26,30 @@ pipeline {
             }
         }
 
+        stage('Create ECR Repositories If Not Exists') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDS}"]
+                ]) {
+                    sh """
+                        aws ecr describe-repositories --repository-names ${FRONTEND_REPO} --region ${AWS_REGION} || \
+                        aws ecr create-repository --repository-name ${FRONTEND_REPO} --region ${AWS_REGION}
+
+                        aws ecr describe-repositories --repository-names ${BACKEND_REPO} --region ${AWS_REGION} || \
+                        aws ecr create-repository --repository-name ${BACKEND_REPO} --region ${AWS_REGION}
+                    """
+                }
+            }
+        }
+
         stage('Build Frontend Image') {
             steps {
                 script {
-                    echo "🔧 Checking if Frontend image exists on DockerHub..."
-                    def frontendExists = sh(
-                        script: "docker pull ${FRONTEND_IMAGE}:latest || echo 'not found'",
-                        returnStatus: true
-                    )
+                    echo "🛠️ Building Frontend Image..."
+                    FRONTEND_ECR="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:${BUILD_NUMBER}"
 
-                    if (frontendExists != 0) {
-                        echo "🛠️ Building new Frontend Docker image..."
-                        dockerImageFrontend = docker.build("${FRONTEND_IMAGE}:${BUILD_NUMBER}", "./${FRONTEND_DIR}")
-                    } else {
-                        echo "✅ Frontend image already exists. Skipping build."
-                        dockerImageFrontend = docker.image("${FRONTEND_IMAGE}:latest")
-                    }
+                    sh "docker build -t ${FRONTEND_ECR} ${FRONTEND_DIR}"
+                    dockerImageFrontend = FRONTEND_ECR
                 }
             }
         }
@@ -45,36 +57,35 @@ pipeline {
         stage('Build Backend Image') {
             steps {
                 script {
-                    echo "🔧 Checking if Backend image exists on DockerHub..."
-                    def backendExists = sh(
-                        script: "docker pull ${BACKEND_IMAGE}:latest || echo 'not found'",
-                        returnStatus: true
-                    )
+                    echo "🛠️ Building Backend Image..."
+                    BACKEND_ECR="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:${BUILD_NUMBER}"
 
-                    if (backendExists != 0) {
-                        echo "🛠️ Building new Backend Docker image..."
-                        dockerImageBackend = docker.build("${BACKEND_IMAGE}:${BUILD_NUMBER}", "./${BACKEND_DIR}")
-                    } else {
-                        echo "✅ Backend image already exists. Skipping build."
-                        dockerImageBackend = docker.image("${BACKEND_IMAGE}:latest")
-                    }
+                    sh "docker build -t ${BACKEND_ECR} ${BACKEND_DIR}"
+                    dockerImageBackend = BACKEND_ECR
                 }
             }
         }
 
-        stage('Push Images to DockerHub') {
+        stage('Push Images to ECR') {
             steps {
                 script {
-                    echo "📦 Pushing Docker images to DockerHub..."
-                    docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDS}") {
-                        if (dockerImageFrontend) {
-                            dockerImageFrontend.push()
-                            dockerImageFrontend.push('latest')
-                        }
-                        if (dockerImageBackend) {
-                            dockerImageBackend.push()
-                            dockerImageBackend.push('latest')
-                        }
+                    echo "📦 Pushing images to AWS ECR..."
+
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDS}"]
+                    ]) {
+                        sh """
+                            aws ecr get-login-password --region ${AWS_REGION} | \
+                            docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+
+                            docker push ${dockerImageFrontend}
+                            docker tag ${dockerImageFrontend} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:latest
+                            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:latest
+
+                            docker push ${dockerImageBackend}
+                            docker tag ${dockerImageBackend} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:latest
+                            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:latest
+                        """
                     }
                 }
             }
@@ -82,33 +93,39 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                script {
-                    echo "🚀 Deploying application to Kubernetes..."
-                    withCredentials([
-                        file(credentialsId: "kubeconfig-aws", variable: 'KUBECONFIG'),
-                        [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "AWS-Credentials"]
-                    ]) {
-                        sh """
-                            export AWS_REGION=${AWS_REGION}
-                            kubectl apply -f frontend/deployment.yaml
-                            kubectl apply -f frontend/service.yaml
-                            kubectl apply -f backend/deployment.yaml
-                            kubectl apply -f backend/service.yaml
-                            kubectl get pods -o wide
-                        """
-                    }
+                withCredentials([
+                    file(credentialsId: "${KUBECONFIG_CRED}", variable: 'KUBECONFIG'),
+                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDS}"]
+                ]) {
+                    sh """
+                        export KUBECONFIG=${KUBECONFIG}
+                        export AWS_REGION=${AWS_REGION}
+
+                        # Update Frontend deployment
+                        kubectl set image deployment/frontend-deployment \
+                           frontend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:${BUILD_NUMBER} --record
+
+                        # Update Backend deployment
+                        kubectl set image deployment/backend-deployment \
+                           backend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:${BUILD_NUMBER} --record
+
+                        # Apply services (LoadBalancer)
+                        kubectl apply -f frontend/service.yaml
+                        kubectl apply -f backend/service.yaml
+
+                        echo "⏳ Waiting for rollout..."
+                        kubectl rollout status deployment/frontend-deployment
+                        kubectl rollout status deployment/backend-deployment
+
+                        kubectl get svc -o wide
+                    """
                 }
             }
         }
-
     }
 
     post {
-        success {
-            echo "✅ Deployment completed successfully!"
-        }
-        failure {
-            echo "❌ Deployment failed. Check Jenkins logs for details."
-        }
+        success { echo "✅ Deployment completed successfully!" }
+        failure { echo "❌ Deployment failed. Check Jenkins logs for details." }
     }
 }
