@@ -72,12 +72,12 @@ pipeline {
                             aws ecr get-login-password --region ${AWS_REGION} | \
                             docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
-                            # Frontend
+                            # Frontend Push
                             docker push ${dockerImageFrontend}
                             docker tag ${dockerImageFrontend} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:latest
                             docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:latest
 
-                            # Backend
+                            # Backend Push
                             docker push ${dockerImageBackend}
                             docker tag ${dockerImageBackend} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:latest
                             docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:latest
@@ -93,25 +93,30 @@ pipeline {
                     file(credentialsId: "${KUBECONFIG_CRED}", variable: 'KUBECONFIG'),
                     [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDS}"]
                 ]) {
+
                     sh """
                         export KUBECONFIG=${KUBECONFIG}
                         export AWS_REGION=${AWS_REGION}
 
-                        echo "🚀 Updating Frontend Deployment..."
-                        kubectl set image deployment/frontend \
-                          frontend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:${BUILD_NUMBER}
-
-                        echo "🚀 Updating Backend Deployment..."
-                        kubectl set image deployment/backend \
-                          backend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:${BUILD_NUMBER}
+                        echo "📄 Applying Deployment Manifests..."
+                        kubectl apply -f frontend/deployment.yaml
+                        kubectl apply -f backend/deployment.yaml
 
                         echo "📡 Applying Services (LoadBalancer)..."
                         kubectl apply -f frontend/service.yaml
                         kubectl apply -f backend/service.yaml
 
+                        echo "🚀 Updating Frontend Deployment..."
+                        kubectl set image deployment/food-delivery-frontend \
+                          food-delivery-frontend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_REPO}:${BUILD_NUMBER}
+
+                        echo "🚀 Updating Backend Deployment..."
+                        kubectl set image deployment/food-delivery-backend \
+                          food-delivery-backend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPO}:${BUILD_NUMBER}
+
                         echo "⏳ Waiting for rollout..."
-                        kubectl rollout status deployment/frontend
-                        kubectl rollout status deployment/backend
+                        kubectl rollout status deployment/food-delivery-frontend
+                        kubectl rollout status deployment/food-delivery-backend
 
                         kubectl get svc -o wide
                     """
